@@ -35,7 +35,7 @@ Zentrik ist eine spezialisierte Buchhaltungssoftware für gemeinnützige Organis
 
 ```bash
 # Repository klonen
-git clone https://github.com/zentrik/supabase-setup.git
+git clone https://github.com/tyfnnn/zentrik-supabase-setup.git
 cd zentrik-supabase
 
 # Setup-Script ausführen
