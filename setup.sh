@@ -35,8 +35,11 @@ error() {
     exit 1
 }
 
-# Überprüfe Root-Berechtigung
-if [ "$EUID" -eq 0 ]; then
+# Debug-Informationen
+log "🔍 Debug: User-ID: $(id -u), User: $(whoami), EUID: $EUID"
+
+# Überprüfe Root-Berechtigung (korrigiert)
+if [ "$(id -u)" -eq 0 ]; then
    error "Dieses Script sollte NICHT als root ausgeführt werden!"
 fi
 
