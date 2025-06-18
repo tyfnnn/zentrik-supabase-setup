@@ -181,7 +181,7 @@ services:
   # Supabase Studio
   studio:
     container_name: supabase-studio
-    image: supabase/studio:20241028-82b9d39
+    image: supabase/studio:20241106-8a20e3b
     restart: unless-stopped
     ports:
       - "3001:3000"
