@@ -1,9 +1,18 @@
+#!/usr/bin/env bash
+
 # ========================================
 # ZENTRIK NGO-BUCHHALTUNG - SETUP SCRIPT
 # Supabase Self-Hosting auf Hetzner Cloud
 # ========================================
 
 set -e  # Exit on any error
+
+# Überprüfe bash
+if [ -z "$BASH_VERSION" ]; then
+    echo "FEHLER: Dieses Script benötigt bash. Bitte verwenden Sie:"
+    echo "bash setup.sh"
+    exit 1
+fi
 
 # Farben für Output
 RED='\033[0;31m'
@@ -27,7 +36,7 @@ error() {
 }
 
 # Überprüfe Root-Berechtigung
-if [[ $EUID -eq 0 ]]; then
+if [ "$EUID" -eq 0 ]; then
    error "Dieses Script sollte NICHT als root ausgeführt werden!"
 fi
 
@@ -40,30 +49,34 @@ log "🚀 Zentrik NGO-Buchhaltung Setup startet..."
 log "📋 Überprüfe Systemvoraussetzungen..."
 
 # Docker prüfen
-if ! command -v docker &> /dev/null; then
+if ! command -v docker >/dev/null 2>&1; then
     error "Docker ist nicht installiert. Bitte installieren Sie Docker zuerst."
 fi
 
 # Docker Compose prüfen
-if ! command -v docker-compose &> /dev/null; then
+if ! command -v docker-compose >/dev/null 2>&1 && ! docker compose version >/dev/null 2>&1; then
     error "Docker Compose ist nicht installiert. Bitte installieren Sie Docker Compose zuerst."
 fi
 
 # Git prüfen
-if ! command -v git &> /dev/null; then
+if ! command -v git >/dev/null 2>&1; then
     error "Git ist nicht installiert. Bitte installieren Sie Git zuerst."
 fi
 
 # Genügend RAM prüfen (mindestens 4GB empfohlen)
-TOTAL_RAM=$(free -m | awk 'NR==2{printf "%.0f", $2/1024}')
-if [ "$TOTAL_RAM" -lt 4 ]; then
-    warn "Weniger als 4GB RAM verfügbar. Für Produktionsumgebungen werden mindestens 8GB empfohlen."
+if command -v free >/dev/null 2>&1; then
+    TOTAL_RAM=$(free -m | awk 'NR==2{printf "%.0f", $2/1024}')
+    if [ "$TOTAL_RAM" -lt 4 ]; then
+        warn "Weniger als 4GB RAM verfügbar. Für Produktionsumgebungen werden mindestens 8GB empfohlen."
+    fi
 fi
 
 # Freier Speicherplatz prüfen (mindestens 10GB)
-AVAILABLE_SPACE=$(df -h . | awk 'NR==2 {print $4}' | sed 's/G//')
-if [ "${AVAILABLE_SPACE%.*}" -lt 10 ]; then
-    warn "Weniger als 10GB freier Speicherplatz verfügbar."
+if command -v df >/dev/null 2>&1; then
+    AVAILABLE_SPACE=$(df -h . | awk 'NR==2 {print $4}' | sed 's/G//')
+    if [ "${AVAILABLE_SPACE%.*}" -lt 10 ] 2>/dev/null; then
+        warn "Weniger als 10GB freier Speicherplatz verfügbar."
+    fi
 fi
 
 log "✅ Systemvoraussetzungen erfüllt"
@@ -76,13 +89,13 @@ log "📝 Sammle Konfigurationsdaten..."
 
 # Domain abfragen
 read -p "🌐 Ihre Domain (z.B. zentrik.example.com): " DOMAIN
-if [[ -z "$DOMAIN" ]]; then
+if [ -z "$DOMAIN" ]; then
     error "Domain ist erforderlich!"
 fi
 
 # Admin-Credentials
 read -p "👤 Admin-Benutzername: " ADMIN_USERNAME
-if [[ -z "$ADMIN_USERNAME" ]]; then
+if [ -z "$ADMIN_USERNAME" ]; then
     ADMIN_USERNAME="zentrik_admin"
 fi
 
@@ -92,7 +105,7 @@ echo "1) Automatisch generieren (empfohlen)"
 echo "2) Manuell eingeben"
 read -p "Auswahl (1-2): " PASSWORD_CHOICE
 
-if [[ "$PASSWORD_CHOICE" == "1" ]]; then
+if [ "$PASSWORD_CHOICE" = "1" ]; then
     ADMIN_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
     log "🔑 Generiertes Admin-Passwort: $ADMIN_PASSWORD"
     log "⚠️  WICHTIG: Notieren Sie sich dieses Passwort!"
@@ -100,7 +113,7 @@ if [[ "$PASSWORD_CHOICE" == "1" ]]; then
 else
     read -s -p "🔐 Admin-Passwort eingeben: " ADMIN_PASSWORD
     echo
-    if [[ ${#ADMIN_PASSWORD} -lt 12 ]]; then
+    if [ ${#ADMIN_PASSWORD} -lt 12 ]; then
         error "Passwort muss mindestens 12 Zeichen lang sein!"
     fi
 fi
@@ -126,7 +139,7 @@ echo "1) Konfigurieren (empfohlen)"
 echo "2) Später konfigurieren"
 read -p "Auswahl (1-2): " EMAIL_CHOICE
 
-if [[ "$EMAIL_CHOICE" == "1" ]]; then
+if [ "$EMAIL_CHOICE" = "1" ]; then
     read -p "📧 SMTP Host (z.B. smtp.gmail.com): " SMTP_HOST
     read -p "📧 SMTP Port (z.B. 587): " SMTP_PORT
     read -p "📧 SMTP Benutzername: " SMTP_USER
@@ -136,7 +149,7 @@ if [[ "$EMAIL_CHOICE" == "1" ]]; then
     read -p "📧 Admin Email-Adresse: " SMTP_ADMIN_EMAIL
     echo "🔒 SMTP Verschlüsselung aktivieren? (Y/n):"
     read -p "Eingabe: " SMTP_SECURE_INPUT
-    if [[ "$SMTP_SECURE_INPUT" == "n" || "$SMTP_SECURE_INPUT" == "N" ]]; then
+    if [ "$SMTP_SECURE_INPUT" = "n" ] || [ "$SMTP_SECURE_INPUT" = "N" ]; then
         SMTP_SECURE="false"
     else
         SMTP_SECURE="true"
@@ -160,10 +173,10 @@ log "✅ Konfiguration vollständig"
 PROJECT_DIR="zentrik-supabase"
 log "📁 Erstelle Projektverzeichnis: $PROJECT_DIR"
 
-if [[ -d "$PROJECT_DIR" ]]; then
+if [ -d "$PROJECT_DIR" ]; then
     warn "Verzeichnis $PROJECT_DIR existiert bereits"
     read -p "Überschreiben? (y/N): " OVERWRITE
-    if [[ "$OVERWRITE" != "y" && "$OVERWRITE" != "Y" ]]; then
+    if [ "$OVERWRITE" != "y" ] && [ "$OVERWRITE" != "Y" ]; then
         error "Setup abgebrochen"
     fi
     rm -rf "$PROJECT_DIR"
@@ -760,11 +773,11 @@ chmod +x backup.sh update.sh status.sh
 # SYSTEMD SERVICE (OPTIONAL)
 # ========================================
 
-if command -v systemctl &> /dev/null; then
+if command -v systemctl >/dev/null 2>&1; then
     echo
     read -p "🔧 Systemd Service für automatischen Start erstellen? (y/N): " CREATE_SERVICE
     
-    if [[ "$CREATE_SERVICE" == "y" || "$CREATE_SERVICE" == "Y" ]]; then
+    if [ "$CREATE_SERVICE" = "y" ] || [ "$CREATE_SERVICE" = "Y" ]; then
         log "🔧 Erstelle Systemd Service..."
         
         sudo tee /etc/systemd/system/zentrik-supabase.service > /dev/null << EOF
