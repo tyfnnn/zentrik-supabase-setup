@@ -1,5 +1,3 @@
-#!/bin/bash
-
 # ========================================
 # ZENTRIK NGO-BUCHHALTUNG - SETUP SCRIPT
 # Supabase Self-Hosting auf Hetzner Cloud
